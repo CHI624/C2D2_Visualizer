@@ -1,0 +1,157 @@
+<canvas id="fireMap" contenteditable="true" style="background-size: cover;" ></canvas>
+<style>
+    body, html {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.content-overlay {
+    position: relative;
+    z-index: 2;
+    height: 100vh;
+    pointer-events: none;
+}
+
+.content-overlay button, .content-overlay a {
+    pointer-events: auto;
+}
+.back-menu {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 100; /* Higher than canvas and other UI */
+    
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: rgba(192, 61, 0, 0.9); /* Matches your orange theme */
+    color: white;
+    text-decoration: none;
+    font-family: Verdana, sans-serif;
+    font-weight: bold;
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    pointer-events: auto; /* Crucial: allows clicking even if overlay is 'none' */
+}
+
+.back-menu:hover {
+    background-color: #f4af00;
+    transform: scale(1.05);
+}
+
+.back-menu .icon {
+    margin-right: 10px;
+    font-size: 20px;
+}
+
+.back-menu .text {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+#fireMap {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1;
+    /* This makes the fire and map look a bit more organic and less sharp */
+    filter: saturate(1.2) contrast(1.1);
+    background-color: #001a33; /* Dark blue background for the 'ocean' area */
+}
+.modal-btn {
+    display: block;
+    width: 100%;
+    margin: 10px 0;
+    padding: 12px;
+    background: #2ecc71;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+.modal-btn:hover {
+    background: #27ae60;
+}
+#game-over-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-family: sans-serif;
+    font-size: 24px;
+    z-index: 2000;
+    text-align: center;
+}
+/* --- MOBILE SPECIFIC OVERRIDES --- */
+    @media (max-width: 700px) {
+        .back-menu .text {
+            display: none; /* Hide 'Exit Simulation' text, keep icon to save space */
+        }
+        
+        .back-menu {
+            padding: 10px 12px;
+        }
+
+        #activity-record {
+            width: 160px;
+            height: 100px;
+            font-size: 9px;
+            top: 15px; /* Move back up since text is hidden */
+            right: 10px;
+        }
+
+        #status-bar {
+            width: 90%;
+            justify-content: space-around;
+            bottom: 10px;
+            padding: 8px;
+            font-size: 12px;
+        }
+
+        #action-modal {
+            min-width: 280px;
+        }
+        
+    }
+</style>
+<script>
+    const MAP_IMAGE_URL = "{{ url_for('static', filename='island.png') }}";
+</script>
+<div class="content-overlay">
+    <a href="{{ url_for('C2D2') }}" class="back-menu">
+        <span class="icon">❮</span> 
+        <span class="text">Exit Simulation</span>
+    </a>
+
+</div>
+<div id="action-modal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(20,20,20,0.95); border:2px solid #2ecc71; padding:20px; border-radius:10px; z-index:1000; color:white; min-width:250px; font-family:sans-serif; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
+    <h3 id="modal-title" style="margin-top:0; border-bottom:1px solid #444; padding-bottom:10px;">Select Action</h3>
+    <div id="action-options-container"></div>
+    <button onclick="closeModal()" style="margin-top:15px; width:100%; background:#444; color:white; border:none; padding:8px; cursor:pointer; border-radius:4px;">Cancel</button>
+</div>
+<div id="status-bar" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); color:white; padding:15px; border-radius:10px; z-index:100; font-family:monospace; display:flex; gap:20px;">
+    <div>⏳ TIME: <span id="timer">02:00</span></div>
+    <div>🔥 COVERAGE: <span id="coverage">0%</span></div>
+</div>
+<div id="activity-record" style="position:fixed; right:20px; top:20px; width:250px; height:300px; background:rgba(0,0,0,0.85); color:#2ecc71; padding:15px; border-radius:10px; font-family:monospace; font-size:12px; overflow-y:auto; border:1px solid #333; z-index:1000;">
+    <div style="border-bottom:1px solid #2ecc71; margin-bottom:10px; font-weight:bold;">TACTICAL ACTIVITY LOG</div>
+    <div id="log-content"></div>
+</div>
+
+<script src="{{ url_for('Human_CDNjs') }}"></script>

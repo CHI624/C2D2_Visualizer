@@ -1,0 +1,345 @@
+*{
+    padding: 0;
+    box-sizing: border-box;
+}
+html, body{
+    height: 100%;
+    width: 100%;
+}
+head{
+    background-color: #f2f2f2;
+    padding: 20px;
+    text-align: center;
+    font-family: Arial, sans-serif;
+}
+
+.container {
+    position: relative;
+    width: 300px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.expand{
+    width: 80px;
+    height: auto;
+    position:absolute;
+    top:100px;
+    left:570px;
+    align-items: center;
+    z-index: 3;
+}
+.title-group {
+    position: relative;     /* This becomes the anchor point */
+    width: 1000px;          /* Match your circle width */
+    margin: 0 auto;         /* Centers the whole group on the page */
+    justify-content: center;
+    align-items: center;
+    right:115px;
+}
+
+.circular {
+    width: 100%;            /* Fills the 1000px container */
+    height: auto;
+    display: block;
+    position: relative;
+    justify-content: center;
+    align-items: center;
+    bottom:120px;
+    left: 110px;
+    z-index: 1;
+}
+
+.title {
+    position: relative;     /* Floats it on top of the circle */
+    z-index: 2;
+    margin: 0;
+    display:block;
+    /* Visual Styles */
+    color: white;
+    font-size: 80px;
+    font-family: Georgia, serif;
+    text-align: center;
+    mix-blend-mode: luminosity;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    
+    /* Centering logic */
+    top: 15%;
+    right: 350px;
+    transform: translateX(-45px);
+}
+
+.expandalt{
+    width: 80px;
+    height: auto;
+    transform: rotate(180deg);
+    position:absolute;
+    top:100px;
+    left:570px;
+    align-items: center;
+    z-index: 3;
+}
+.header_hidden{
+    background-color:#6e0000;
+    font-family:Verdana, Geneva, Tahoma, sans-serif;
+    font-size: 40px;
+    font-weight: bold;
+    width:100%;
+    flex-direction: column;
+    text-align: center;
+    display:flex;
+    position:relative;
+    z-index:1;
+    bottom:700px;
+    margin-bottom:-30px;
+}
+.header_hidden ul {
+    display: flex;
+    flex-direction: row;        /* Change from column to row */
+    justify-content: space-between; /* Far left, middle, far right */
+    align-items: center;        /* Vertically center them */
+    list-style-type: none;      /* Remove bullet points */
+    padding: 0 50px;            /* Add padding so they aren't touching the screen edges */
+    margin: 0;
+}
+.header_hidden a{
+    color: white;
+    font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 5px;
+    margin:40px;
+    margin-top:90px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.header_hidden a:hover{
+    background-color: #a04500;
+}
+.header-container h1{
+    position: relative;
+    z-index: 2;
+    left: 150px;
+    align-items: center;
+    justify-content: center;
+    top: 0px;
+    margin-bottom:30px;
+}
+.feature-table{
+    bottom:400px;
+    position: relative;
+    width: 80%;
+    border-collapse: collapse;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    left: 160px;
+    align-items: center;
+    text-align: center;
+    justify-content: center;
+    margin:20px;
+    padding:0px;
+    z-index:10;
+}
+.feature-table th, .feature-table td{
+    border: 1px solid #eaa000;
+    padding: 8px;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+}
+.feature-table th{
+    background-color: #eaa000;
+    text-align: center;
+}
+footer{
+    text-align: center;
+    padding: 30px;
+    font-size: 25px;
+    background: linear-gradient(to right, #702300, #c15700);
+    position:fixed;
+    bottom:0px;
+    width: 100%;
+    z-index: 0;
+}
+footer p{
+    color: white;
+    margin: 0;
+}
+.logo-container{
+    text-align: center;
+    margin-top: 0px;
+    width:100px;
+    height:100px;
+}
+.info-container{
+    flex-direction: column;
+    display: flex;
+    bottom:150px;
+    margin-left: 90px;
+    position:relative;
+    flex-wrap: wrap;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+}
+.info-box{
+    margin: 20px 0;
+    position: relative;
+    bottom:100px;
+        margin-right: 20px;
+    display: flex;
+}
+.info-box h1{
+    bottom:380px;
+    left:15%;
+    margin-right: 20px;
+    position:relative;
+    color:#dfb300;
+    animation: pulse-glow 2s infinite alternate;
+    font-size: 80px;
+    text-shadow: 0 0 8px rgba(255, 69, 0, 0.6);
+}
+@keyframes pulse-glow {
+    from { filter: drop-shadow(0 0 5px #ff4500); }
+    to { filter: drop-shadow(0 0 20px #ff0000); }
+}
+.description-box{
+    bottom:530px;
+    width: 700px;
+    height:450px;
+    left: 47%;
+    margin: 25px;
+    padding: 40px;
+    text-align: center;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    font-style:bold;
+    font-size: 18px;
+    color:white;
+    position:relative;
+    border-radius: 10px;
+    background-image: linear-gradient(to top, #6e0000, #cf5300);
+    border:#fffafa solid 2px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.description_box_about{
+    bottom:330px;
+    width: 700px;
+    height:450px;
+    left: 20%;
+    margin: 25px;
+    padding: 40px;
+    text-align: center;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    font-style:bold;
+    font-size: 18px;
+    color:white;
+    position:relative;
+    border-radius: 10px;
+    background-image: linear-gradient(to top, #6e0000, #cf5300);
+    border:#fffafa solid 2px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.C2D2_logo{
+    border-radius: 20px;
+    border:#ffffff solid 3px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    width:700px;
+    bottom:200px;
+    position:relative;
+    right: 230px;
+    height:auto;
+}
+.btn{
+    background-color: #e3a600;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    margin:15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+.btn:hover{
+    background-color: #a04500;
+}
+.menu-guide {
+    position: absolute;
+    left: 61.5%;
+    top:185px;
+    transform: translateX(0%);
+    bottom: 650px; /* Position it just above your pull-down button */
+    color: #ffffff;
+    font-family: 'Verdana', sans-serif;
+    font-size: 10px;
+    font-weight: bold;
+    text-align: center;
+    z-index: 3;
+    opacity: 0.8;
+    pointer-events: none; /* User can click through the text to hit the button */
+    text-shadow: 0 0 8px rgba(255, 204, 0, 0.683);
+    /* Apply the floating animation */
+    animation: float-up-down 2s ease-in-out infinite;
+}
+/* --- Media Queries for Mobile/Tablet --- */
+@media (max-width: 768px) {
+    .description-box{
+        width: 90%;
+        height: auto;
+        left: 25%;
+        top: 50px;
+        font-size: 16px;
+    }
+    .info-box h1{
+        font-size: 50px;
+        bottom:280px;
+        align-items: center;
+        justify-content: center;
+        left:65%;
+    }
+    .feature-table{
+        width: 130%;
+        height: 700px;
+        left: 5%;
+        bottom:380px;
+    }
+    .table-btn{
+        font-size: 30px;
+        display: block;
+        height: 250px;
+        border: alpha;
+        text-align: center;
+    }
+    .info-container{
+        bottom:100px;
+        margin-left: 20px;
+    }
+    .C2D2_logo{
+        width: 600px;
+        height: auto;
+        right: 0px;
+        bottom:150px;
+    }
+    .header_hidden{
+        background-size: cover;
+        width: 150%;
+    }
+}
+/* The Animation: Moves 10px up and down */
+@keyframes float-up-down {
+    0% { transform: translate(-50%, 0px); }
+    50% { transform: translate(-50%, -10px); }
+    100% { transform: translate(-50%, 0px); }
+}
+.table-btn {
+    display: block;
+    padding: 10px 20px;
+    background-color: #ff4000;
+    color: white;
+    font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+    text-decoration: none;
+    border-radius: 5px;
+    box-sizing: border-box;
+    text-align: center;
+}
+
+.table-btn:hover {
+    background-color: #b33900;
+}
