@@ -1,4 +1,4 @@
-<canvas id="fireMap" contenteditable="true" style="background-size: cover;" ></canvas>
+<canvas id="fireMap" style="background-size: cover;" ></canvas>
 <style>
     body, html {
     margin: 0;
@@ -98,6 +98,50 @@
     z-index: 2000;
     text-align: center;
 }
+.log-hidden {
+    transform: translateX(275px); /* Moves it off-screen plus a little buffer */
+}
+/* The dark background covering the whole screen */
+.modal-overlay {
+    display: none; /* Hidden by default */
+    position: fixed;
+    z-index: 2000; /* Higher than your map and action modal */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8); /* Dimmed background */
+}
+
+/* The actual box in the middle */
+.modal-content {
+    background-color: #1a1a1a; /* Dark theme to match tactical feel */
+    color: #00ff00; /* Matrix green text */
+    margin: 10% auto; /* 10% from the top, centered horizontally */
+    padding: 20px;
+    border: 1px solid #333;
+    width: 60%; 
+    max-height: 70vh;
+    overflow-y: auto; /* Scrollable if log is long */
+    position: relative;
+    border-radius: 8px;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+/* The 'X' in the corner */
+.close-modal-x {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    color: #ff4444;
+    font-size: 30px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close-modal-x:hover {
+    color: #ffffff;
+}
 /* --- MOBILE SPECIFIC OVERRIDES --- */
     @media (max-width: 700px) {
         .back-menu .text {
@@ -131,7 +175,7 @@
     }
 </style>
 <script>
-    const MAP_IMAGE_URL = "{{ url_for('static', filename='island.png') }}";
+    const MAP_IMAGE_URL = "{{ url_for('static', filename='Palisades_Cali.jpg') }}";
 </script>
 <div class="content-overlay">
     <a href="{{ url_for('C2D2') }}" class="back-menu">
@@ -145,13 +189,71 @@
     <div id="action-options-container"></div>
     <button onclick="closeModal()" style="margin-top:15px; width:100%; background:#444; color:white; border:none; padding:8px; cursor:pointer; border-radius:4px;">Cancel</button>
 </div>
+<div id="wind-hud-bottom" style="position:fixed; bottom:90px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); border:1px solid #00ccff; padding:5px 10px; border-radius:50px; color:#00ccff; font-family:monospace; display:none; align-items:center; gap:10px; z-index:1000; box-shadow:0 0 10px #00ccff;">
+    <span id="wind-icon" style="font-size:24px;">🌪️</span>
+    <span id="wind-text" style="font-size:18px; font-weight:bold;">WIND: SCANNING...</span>
+</div>
 <div id="status-bar" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); color:white; padding:15px; border-radius:10px; z-index:100; font-family:monospace; display:flex; gap:20px;">
     <div>⏳ TIME: <span id="timer">02:00</span></div>
     <div>🔥 COVERAGE: <span id="coverage">0%</span></div>
 </div>
-<div id="activity-record" style="position:fixed; right:20px; top:20px; width:250px; height:300px; background:rgba(0,0,0,0.85); color:#2ecc71; padding:15px; border-radius:10px; font-family:monospace; font-size:12px; overflow-y:auto; border:1px solid #333; z-index:1000;">
-    <div style="border-bottom:1px solid #2ecc71; margin-bottom:10px; font-weight:bold;">TACTICAL ACTIVITY LOG</div>
-    <div id="log-content"></div>
+<div id="activity-record" style="position:fixed; right:20px; top:20px; width:250px; height:300px; background:rgba(0,0,0,0.85); color:#2ecc71; padding:15px; border-radius:10px; font-family:monospace; font-size:11px; border:1px solid #333; z-index:1000; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);">
+    
+    <button onclick="toggleLog()" style="position:absolute; left:-40px; top:0; background:rgba(0,0,0,0.85); color:#2ecc71; border:1px solid #333; border-right:none; padding:10px 5px; cursor:pointer; border-radius: 5px 0 0 5px; writing-mode: vertical-lr; font-size: 10px; font-weight: bold; height: 80px;">
+        LOG TOGGLE
+    </button>
+
+    <button id="viewLogBtn" onclick="toggleActivityModal()" style="position:absolute; left:-40px; top:85px; background:rgba(0,0,0,0.85); color:#00ccff; border:1px solid #333; border-right:none; padding:10px 5px; cursor:pointer; border-radius: 5px 0 0 5px; writing-mode: vertical-lr; font-size: 10px; font-weight: bold; height: 80px; border-color: #00ccff;">
+        VIEW HISTORY
+    </button>
+
+    <div style="border-bottom:1px solid #2ecc71; margin-bottom:10px; font-weight:bold;">
+        LIVE ACTIVITY FEED
+    </div>
+    <div id="log-content" style="overflow-y:auto; height: 250px;"></div>
+
 </div>
 
+<div id="activity-modal" class="modal-overlay" onclick="closeOnOverlayClick(event)">
+    <div class="modal-content">
+        <span class="close-modal-x" onclick="toggleActivityModal()">&times;</span>
+        <h2 style="color:#00ccff; border-bottom: 1px solid #333; padding-bottom: 10px;">TACTICAL ACTIVITY LOG</h2>
+        <div id="full-log-display" style="line-height: 1.6;"></div>
+    </div>
+</div>
+<div id="mission-briefing" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.9); z-index:20000; display:flex; justify-content:center; align-items:center; color:white; font-family:monospace;">
+    <div style="width:600px; border:2px solid #2ecc71; padding:40px; background:#0a0a0a; box-shadow:0 0 20px #2ecc71;">
+        <h1 style="color:#2ecc71; border-bottom:2px solid #2ecc71; padding-bottom:10px;">MISSION BRIEFING: OP FIRESCAN</h1>
+        <ul style="line-height:1.8; font-size:18px;">
+            <li><strong>OBJECTIVE:</strong> Maintain fire coverage below 60%.</li>
+            <li><strong>ASSETS:</strong> Protect Yellow Priority Assets at all costs.</li>
+            <li><strong>CIVILIANS:</strong> Do not let fire overtake Evacuation Zones.</li>
+            <li><strong>WIND:</strong> Scan nodes to reveal wind direction and speed.</li>
+            <li><strong>VICTORY:</strong> Extinguish all fires before 120s expires.</li>
+        </ul>
+        <button onclick="startMission()" style="margin-top:20px; width:100%; padding:15px; background:#2ecc71; color:black; border:none; font-weight:bold; cursor:pointer; font-size:20px;">INITIALIZE SIMULATION</button>
+    </div>
+</div>
+<div id="artifact-legend" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.95); z-index:20001; display:flex; justify-content:center; align-items:center; color:white; font-family:monospace;">
+    <div style="width:700px; border:2px solid #00ccff; padding:40px; background:#0a0a0a; box-shadow:0 0 20px #00ccff;">
+        <h1 style="color:#00ccff; border-bottom:2px solid #00ccff; padding-bottom:10px; text-transform: uppercase;">System Intel: Map Artifacts</h1>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+            <div style="line-height:1.6;">
+                <p><strong style="color:#f1c40f;">🟡 PRIORITY ASSETS:</strong> Critical infrastructure. If fire reaches these, mission failure is imminent.</p>
+                <p><strong style="color:#e74c3c;">🔥 FIRE FRONT:</strong> Dynamic thermal zones. Spreads based on terrain and wind direction.</p>
+            </div>
+            <div style="line-height:1.6;">
+                <p><strong style="color:#7f8c8d;">❌ OFFLINE NODES:</strong> Nodes consumed by fire or destroyed. They cannot be interacted with.</p>
+                <p><strong style="color:#3498db;">🌀 SCAN NODES:</strong> Deploy sensors here to reveal hidden wind data and local conditions.</p>
+            </div>
+        </div>
+
+        <div style="margin-top:20px; padding:15px; background:rgba(0, 204, 255, 0.1); border-left:4px solid #00ccff;">
+            <p><strong>PRO TIP:</strong> Move the map by dragging. Click nodes to deploy suppression or scan assets.</p>
+        </div>
+
+        <button onclick="showMissionBriefing()" style="margin-top:20px; width:100%; padding:15px; background:#00ccff; color:black; border:none; font-weight:bold; cursor:pointer; font-size:20px; text-transform: uppercase;">Proceed to Mission Briefing</button>
+    </div>
+</div>
 <script src="{{ url_for('Human_CDNjs') }}"></script>

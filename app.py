@@ -178,9 +178,15 @@ def process_action():
         cdn_variable = node_mapping.get(ui_node_id, 'Action')
 
         # 3. Standard CDN Query (Using the correct variable 'fire_cdn')
-        # We query 'Fire_Intensity' because that is what your model uses
+        # Inside process_action in app.py
         prediction = fire_cdn._cdn_query(['Fire_Intensity'], {cdn_variable: val}, {}, pcc=False)
-        
+        prob_high = float(prediction.get_value(**{'Fire_Intensity': 1}))
+
+# --- NEW: Calculate "Reduction" or "Impact" message ---
+# If prob_high is 0.1, that's a 90% chance of Low intensity (success)
+        reduction_pct = round((1.0 - prob_high) * 100) 
+        impact_msg = f"CDN ANALYSIS: High-Intensity probability reduced to {round(prob_high * 100)}%. Resulted in {reduction_pct}% effectiveness."
+
         # get_value expects a dictionary of the state we are checking
         prob_high = float(prediction.get_value(**{'Fire_Intensity': 1}))
         
@@ -190,7 +196,8 @@ def process_action():
         return jsonify({
             "status": "success",
             "spread_increment": spread_multiplier,
-            "prob_high": prob_high
+            "prob_high": prob_high,
+            "cdn_msg" : impact_msg
         })
 
     except Exception as e:
