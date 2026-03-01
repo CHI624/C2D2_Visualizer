@@ -6,7 +6,8 @@ let discreteTime = 0; // Starts at 0, counts UP to MAX_TIME
 const MAX_TIME = 120000; // 120,000ms (2 minutes)
 const TIME_PER_ACTION = 5000; // Each decision adds 5 seconds
 const COVERAGE_THRESHOLD = 0.60; // 60%
-
+let currentGrade = 100;
+let primaryObjectiveType = ''; // Will hold 'person' or 'area'
 let camera = { x: 0, y: 0, zoom: 1 };
 let isDragging = false;
 let lastMouse = { x: 0, y: 0 };
@@ -45,6 +46,10 @@ function showMissionBriefing() {
 function startMission() {
     document.getElementById('mission-briefing').style.display = 'none';
     gameActive = true;
+    currentGrade = 100;
+    // Announce the primary objective to the log
+    const objName = primaryObjectiveType === 'person' ? "VIP PERSONNEL (⭐)" : "INFRASTRUCTURE (🏠)";
+    recordActivity(`MISSION START: Primary protection objective is ${objName}.`);
     // Set a random wind speed for the report
     currentWind.speed = Math.floor(Math.random() * 30) + 20; // 20-50 mph
 // 1. Reset Arrays to ensure no duplicates
@@ -80,6 +85,27 @@ function toggleLog() {
     const log = document.getElementById('activity-record');
     log.classList.toggle('log-hidden');
 }
+// --- UPDATE THIS FUNCTION ---
+function initializeAssets() {
+    let assetNodes = nodes.filter(n => n.isAsset);
+    let types = Math.random() > 0.5 ? ['person', 'person', 'area'] : ['person', 'area', 'area'];
+
+    for (let i = types.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [types[i], types[j]] = [types[j], types[i]];
+    }
+
+    assetNodes.forEach((node, index) => {
+        if (types[index]) {
+            node.assetType = types[index];
+            node.penaltyApplied = false; // NEW: Reset penalty flag
+        }
+    });
+
+    // NEW: Randomly select the main priority for this run
+    primaryObjectiveType = Math.random() > 0.5 ? 'person' : 'area';
+}
+
 function calculateSuppressionTime(fire) {
     const ratio = fire.radius / fire.maxRadius;
     
@@ -110,6 +136,10 @@ function toggleActivityModal() {
     } else {
         // Copy the current history from your sidebar log into the modal
         logDisplay.innerHTML = mainLog.innerHTML;
+        // --- NEW: STYLING FOR LARGER & BOLDER TEXT ---
+        logDisplay.style.fontSize = "22px";   // Increases text size
+        logDisplay.style.fontWeight = "bold"; // Makes text bold
+        logDisplay.style.lineHeight = "1.6";  // Improves readability
         modal.style.display = "block";
     }
 }
@@ -329,24 +359,28 @@ while (!valid && attempts < 1000) {
 function drawNodes() {
     nodes.forEach(node => {
         // Collision Check
+        const wasAlreadyCompromised = node.isCompromised; // Track previous state
         node.isCompromised = fires.some(f => {
             const dist = Math.sqrt((f.x - node.x)**2 + (f.y - node.y)**2);
             return dist < f.radius; 
         });
-
+        // --- NEW: GRADE PENALTY LOGIC ---
+        if (node.isAsset && node.isCompromised && !wasAlreadyCompromised && !node.penaltyApplied) {
+            currentGrade = Math.max(0, currentGrade - 15); // Deduct 15% for asset loss
+            node.penaltyApplied = true; // Ensure it only deducts ONCE
+            recordActivity(`CRITICAL LOSS: Asset at ${node.id} compromised! Grade -15%`);
+        }
         const size = 20 / camera.zoom;
         ctx.save();
         
-        // 1. Draw The Node (Square or Triangle)
+// --- 1. Draw The Node Base ---
         if (node.isCompromised) {
             ctx.fillStyle = "#333333"; 
             ctx.globalAlpha = 0.7;
         } else {
-            if (node.type === 'investigation') {
-                ctx.fillStyle = node.selected ? "#ecf01d" : "#ebd915"; 
-            } else {
-                ctx.fillStyle = node.selected ? "#ecf01d" : "#2ecc71"; 
-            }
+            ctx.fillStyle = node.type === 'investigation' 
+                ? (node.selected ? "#ecf01d" : "#ebd915") 
+                : (node.selected ? "#ecf01d" : "#2ecc71");
             ctx.globalAlpha = 1.0;
         }
 
@@ -368,32 +402,48 @@ function drawNodes() {
 
         // 2. NEW: Draw Asset Overlay (If Attached)
         //  Logic adapted for nodes
+// 2. UPDATED: Draw Asset Overlay with Logic for Stars/Houses
         if (node.isAsset && !node.isCompromised) {
             const time = Date.now() / 500;
-            const assetSize = 35 / camera.zoom; // Larger than the node
+            const assetSize = 35 / camera.zoom;
 
             ctx.translate(node.x, node.y);
+            
+            // Draw Pulsing Dotted Reticle
+            ctx.save();
             ctx.rotate(time);
-            
             ctx.lineWidth = 3 / camera.zoom;
-            ctx.strokeStyle = "#FFD700"; // Gold color
-            
-            // Draw Reticle Segments
+            ctx.strokeStyle = "#FFD700"; 
             ctx.beginPath(); ctx.arc(0, 0, assetSize, 0.2, 1.4); ctx.stroke();
             ctx.beginPath(); ctx.arc(0, 0, assetSize, 1.8, 3.0); ctx.stroke();
             ctx.beginPath(); ctx.arc(0, 0, assetSize, 3.4, 4.6); ctx.stroke();
             ctx.beginPath(); ctx.arc(0, 0, assetSize, 5.0, 6.2); ctx.stroke();
+            ctx.restore();
 
-            // Asset Label
-            ctx.rotate(-time); // Reset rotation for text
-            ctx.fillStyle = "#FFD700";
-            ctx.font = `bold ${12 / camera.zoom}px Courier New`;
-            ctx.textAlign = "center";
-            ctx.fillText("⚠ ASSET", 0, -assetSize - (5 / camera.zoom));
-            
-            // Reset translation for the standard label
-            ctx.translate(-node.x, -node.y); 
-        }
+            // --- NEW: INSIGNIA SELECTION ---
+            // Determines if it's a Star (Person) or House (Area)
+// 2. NEW: Insignia (Star vs House) and Glow Effect
+    const insignia = node.assetType === 'person' ? "⭐" : "🏠";
+    
+    ctx.save();
+    // THE GLOW:
+    ctx.shadowBlur = 15 / camera.zoom;
+    ctx.shadowColor = "#FFD700"; // Golden neon glow
+    ctx.fillStyle = "#FFD700";
+    ctx.font = `bold ${22 / camera.zoom}px Courier New`; // Larger font for visibility
+    ctx.textAlign = "center";
+    
+    // Draw the Emoji with glow
+    ctx.fillText(insignia, 0, -assetSize - (8 / camera.zoom));
+    
+    // Draw "PRIORITY" label
+    ctx.shadowBlur = 0; // Turn off heavy glow for the small text
+    ctx.font = `bold ${12 / camera.zoom}px Courier New`;
+    ctx.fillText("PRIORITY", 0, -assetSize - (28 / camera.zoom));
+    ctx.restore();
+
+    ctx.translate(-node.x, -node.y); 
+}
 
         // 3. Draw Standard Label
         ctx.fillStyle = "white";
@@ -430,21 +480,8 @@ function draw() {
         endGame("CRITICAL FAILURE: Fire spread has exceeded containment thresholds (60%+).", false);
         return;
     }
-
 // Check Case 3: Priority Asset Node Compromised
-    const assetCompromised = nodes.some(node => {
-        if (!node.isAsset) return false;
-        // Check if fire hit this asset node
-        return fires.some(f => {
-            const dist = Math.sqrt((f.x - node.x)**2 + (f.y - node.y)**2);
-            return dist < f.radius; 
-        });
-    });
 
-    if (assetCompromised) {
-        endGame("MISSION FAILURE: A high-value priority asset node has been compromised.", false);
-        return;
-    }
 
     // Check Case 4: Mission Success (All fires neutralized after initial start)
     // Only check this if some time has passed to allow initial fires to spawn [cite: 310-313]
@@ -461,43 +498,107 @@ function draw() {
     ctx.scale(camera.zoom, camera.zoom); 
     ctx.drawImage(mapImg, 0, 0);
 
-    // Draw Evacuations
-    evacuations.forEach(evac => {
-        const isThreatened = fires.some(f => !f.isMitigated && f.radius > 0 && 
-            Math.sqrt((f.x - evac.x)**2 + (f.y - evac.y)**2) < (f.radius + evac.radius + 50));
+evacuations.forEach(evac => {
+    // 1. SCORING LOGIC (Remains permanent once hit)
+    if (!evac.penaltyApplied) {
+        const isOverrun = fires.some(f => !f.isMitigated && f.radius > 0 && 
+            Math.sqrt((f.x - evac.x)**2 + (f.y - evac.y)**2) < (f.radius + evac.radius));
         
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(evac.x, evac.y, evac.radius, 0, Math.PI * 2);
-        ctx.strokeStyle = isThreatened ? "rgba(255, 50, 50, 0.8)" : "rgba(0, 150, 255, 0.5)";
-        ctx.fillStyle = isThreatened ? "rgba(255, 0, 0, 0.2)" : "rgba(0, 100, 255, 0.1)";
-        ctx.setLineDash([10, 10]);
-        ctx.stroke();
-        ctx.fill();
-        ctx.restore();
-    });
-
-    // Draw Fires
-    fires.forEach(fire => {
-        if (fire.radius > 0) {
-            fire.update(); 
-            fire.draw(ctx); 
+        if (isOverrun) {
+            evac.penaltyApplied = true;
+            currentGrade = Math.max(0, currentGrade - 5);
+            recordActivity(`TRAGEDY: Evacuation zone compromised! Grade -5%`);
         }
-    });
+    }
+
+    // 2. VISUAL LOGIC (Resets color if fire is cleared)
+    // Check if any ACTIVE (non-mitigated) fire is currently inside the zone
+    const isCurrentlyThreatened = fires.some(f => !f.isMitigated && f.radius > 0 && 
+        Math.sqrt((f.x - evac.x)**2 + (f.y - evac.y)**2) < (f.radius + evac.radius));
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(evac.x, evac.y, evac.radius, 0, Math.PI * 2);
+    
+    // Use isCurrentlyThreatened for color, not penaltyApplied
+    ctx.strokeStyle = isCurrentlyThreatened ? "rgba(255, 50, 50, 0.8)" : "rgba(0, 255, 0, 0.5)";
+    ctx.fillStyle = isCurrentlyThreatened ? "rgba(255, 0, 0, 0.2)" : "rgba(0, 255, 0, 0.05)";
+    
+    ctx.setLineDash([10, 5]);
+    ctx.stroke();
+    ctx.fill();
+    ctx.restore();
+});
+
+    if (currentGrade <= 50) {
+        endGame("OPERATIONAL FAILURE: Command Grade reached 50%. Mission aborted.", false);
+        return;
+    }
+
+fires.forEach(fire => {
+    // Check both if the fire is active AND if it has been revealed by a scan
+    if (fire.radius > 0 && fire.isVisible) {
+        fire.update(); 
+        fire.draw(ctx); 
+    }
+});
 
     drawNodes();
 
-    // Draw Animations
-    activeAnimations.forEach((anim, index) => {
-        anim.radius += 10;
-        const alpha = 1 - (anim.radius / anim.maxRadius);
+activeAnimations.forEach((ani, index) => {
+if (ani.type === 'drift_warning') {
+        // Find the commander that belongs to this path
+        const commander = fires.find(f => f.x === ani.startX && f.y === ani.startY && f.isCommander);
+        
+        // If commander is gone, mitigated, or finished, remove animation
+        if (!commander || commander.isMitigated || !commander.driftTarget) {
+            activeAnimations.splice(index, 1);
+            return;
+        }
+
+        ctx.save();
+        ctx.setLineDash([10, 5]);
+        ctx.strokeStyle = "rgba(255, 60, 0, 0.6)";
+        ctx.lineWidth = 3 / camera.zoom;
         ctx.beginPath();
-        ctx.arc(anim.x, anim.y, anim.radius, 0, Math.PI * 2);
-        ctx.strokeStyle = anim.type === 'scan' ? `rgba(0, 255, 0, ${alpha})` : `rgba(0, 150, 255, ${alpha})`;
+        ctx.moveTo(ani.startX, ani.startY);
+        ctx.lineTo(ani.endX, ani.endY);
+        ctx.stroke();
+        ctx.restore();
+    }
+// --- NEW: RENDER THE INVESTIGATION SCAN ---
+    if (ani.type === 'investigation_scan') {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(ani.x, ani.y, ani.radius, 0, Math.PI * 2);
+        
+        // Create a cyan "radar" pulse effect
+        ctx.strokeStyle = `rgba(0, 204, 255, ${ani.life})`;
         ctx.lineWidth = 5 / camera.zoom;
         ctx.stroke();
-        if (anim.radius >= anim.maxRadius) activeAnimations.splice(index, 1);
-    });
+        
+        // Draw an inner glow
+        ctx.fillStyle = `rgba(0, 204, 255, ${ani.life * 0.2})`;
+        ctx.fill();
+        ctx.restore();
+
+        // Animation Physics
+        ani.radius += 5; // Pulse expands
+        ani.life -= 0.02; // Fades out
+        
+        if (ani.life <= 0) activeAnimations.splice(index, 1);
+    }
+    if (ani.type === 'control_line') {
+        ctx.strokeStyle = "rgba(255, 165, 0, 0.8)"; // Orange for Control Line
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(ani.x, ani.y, 280, 0, Math.PI * 2);
+        ctx.setLineDash([15, 10]); // Dashed orange ring
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset
+        ani.life -= 0.02;
+    }
+});
 
     ctx.restore(); // End Map Space
 
@@ -601,17 +702,35 @@ const windHud = document.getElementById('wind-hud-bottom');
 
 
     coverageDisplay.innerText = `${percent}% ${activeThreats > 0 ? '(ACTIVE)' : '(STABLE)'}`;
+    // --- NEW: Update Grade Display ---
+    const gradeDisplay = document.getElementById('grade-display');
+    if (gradeDisplay) {
+        gradeDisplay.innerText = `${currentGrade}%`;
+        
+        // Color coding for tactical urgency
+        if (currentGrade >= 80) {
+            gradeDisplay.style.color = "#2ecc71"; // Green (Optimal)
+        } else if (currentGrade >= 60) {
+            gradeDisplay.style.color = "#f1c40f"; // Yellow (Warning)
+        } else {
+            gradeDisplay.style.color = "#e74c3c"; // Red (Critical)
+        }
+    }
 }
 // Initializing the app
 window.addEventListener('resize', resizeCanvas);
 mapImg.onload = () => {
-    resizeCanvas();
-    generateNodes();
-    // 1. Start the first fire immediately
-    startRandomFire(true); // Force a 'Seed' ignition
-
-    generateNodes();
+resizeCanvas();
+    
+    // 1. Generate the base nodes only once
+    generateNodes(); 
+    
+    // 2. Assign the randomized asset types (People vs Houses)
+    initializeAssets(); 
+    
+    // 3. Create the priority regions and initial fire
     generatePriorityZone();
+    startRandomFire(true);
     
     // Create Header
     const header = document.createElement('div');
@@ -635,7 +754,35 @@ let activityLog = []; // Global list to track actions
 
 function handleAction(nodeId, actionValue, distance) {
     if (!gameActive) return;
+    // Find the specific node object using the nodeId string
+    const node = nodes.find(n => n.id === nodeId);
+        
+    if (node && node.type === 'investigation') {
+        const SCAN_RADIUS = 450; // Define how far the scan reaches
 
+        // Trigger the animation
+        activeAnimations.push({
+            type: 'investigation_scan',
+            x: node.x,
+            y: node.y,
+            radius: 10,
+            maxRadius: SCAN_RADIUS, 
+            life: 1.0
+        });
+        
+        // Reveal wind info globally
+        currentWind.revealed = true; 
+
+        // ONLY reveal fires that are inside the scan radius
+        fires.forEach(f => {
+            const distToScan = Math.sqrt((f.x - node.x)**2 + (f.y - node.y)**2);
+            if (distToScan <= SCAN_RADIUS) {
+                f.isVisible = true; 
+            }
+        });
+        
+        recordActivity(`INTEL: Scanning sector ${node.id}. Local thermal signatures revealed.`);
+    }
     // 1. Advance turn time
     discreteTime += TIME_PER_ACTION;
 
@@ -645,13 +792,12 @@ function handleAction(nodeId, actionValue, distance) {
 
     if (!allMaxed) {
         // Trigger a chance for a new fire only AFTER a choice is made
-        if (Math.random() < 0.50) { 
             startRandomFire(false);
             recordActivity("NEW IGNITION: Turn-based spread detected.");
-        }
         
         // Also trigger local spread/spot fires
-        triggerDiscreteSpread(); 
+        triggerDiscreteSpread();
+        triggerCommanderSpread(); 
     }
     const actionNames = { 0: "Evacuation", 1: "Direct Suppression", 2: "Investigation Scan", 3: "Control Line" };
     const targetX = activeNode ? activeNode.x : 0;
@@ -662,21 +808,42 @@ function handleAction(nodeId, actionValue, distance) {
 
     // --- ACTION LOGIC ---
     if (actionValue === 2) { // INVESTIGATION SCAN
+        const SCAN_RADIUS = 275;
         currentWind.revealed = true;
-        const scanRadius = 450; 
-        activeAnimations.push({ x: targetX, y: targetY, radius: 0, maxRadius: scanRadius, type: 'scan' });
+        activeAnimations.push({ x: targetX, y: targetY, radius: 0, maxRadius: SCAN_RADIUS, type: 'scan' });
         
         let firesFound = 0;
         // NEW: Asset reveal logic
     let assetsFound = 0;
     priorityZones.forEach(zone => {
         const distToZone = Math.sqrt((zone.x - targetX)**2 + (zone.y - targetY)**2);
-        
+        if (!zone.revealed) return;
+
+    ctx.save();
+    // Set style for the dotted circle
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = zone.isCompromised ? 'gray' : '#f1c40f';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(zone.x, zone.y, zone.radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // --- NEW: INSIGNIA LOGIC ---
+    const icon = zone.type === 'person' ? '⭐' : '🏠';
+    const label = zone.isCompromised ? "LOST" : `${icon} PRIORITY ASSET`;
+    
+    ctx.fillStyle = zone.isCompromised ? 'gray' : '#f1c40f';
+    ctx.font = "bold 14px monospace";
+    ctx.textAlign = "center";
+    // Draw text above the circle
+    ctx.fillText(label, zone.x, zone.y - zone.radius - 10);
+    ctx.restore();
         // If the asset is within the scan radius and not yet revealed
-        if (distToZone < scanRadius && !zone.revealed) {
+        if (distToZone < SCAN_RADIUS && !zone.revealed) {
             zone.revealed = true;
             assetsFound++;
         }
+        
     });
 // Priority Asset Report Logic:
 //    if (assetsFound > 0) {
@@ -686,9 +853,10 @@ function handleAction(nodeId, actionValue, distance) {
         // LOOP: Find hidden fires nearby and reveal them
         fires.forEach(f => {
             const distToFire = Math.sqrt((f.x - targetX)**2 + (f.y - targetY)**2);
-            if (distToFire < scanRadius) {
+            if (distToFire < SCAN_RADIUS) {
                 if (!f.revealed) firesFound++;
                 f.revealed = true; // POP! Fire appears
+                f.isVisible = true;
             }
         });
 
@@ -699,34 +867,53 @@ function handleAction(nodeId, actionValue, distance) {
         }
         recordActivity(`METEOROLOGY: Wind data updated.`);
     } 
-    else if (actionValue === 0) { // EVACUATION
-        evacuations.push({ x: targetX, y: targetY, radius: 150 });
-        activeAnimations.push({ x: targetX, y: targetY, radius: 0, maxRadius: 150, type: 'evac' });
+else if (actionValue === 0) { 
+    // Check if node already has an evacuation [cite: 1157-1158]
+    if (node.evacuationDeployed) {
+        recordActivity(`DENIED: Evacuation already active for ${node.id}.`);
+        return; 
     }
-    else if (actionValue === 1 || actionValue === 3) { // SUPPRESSION
-        let maxSuppressionCost = 0;
-        let firesAffected = 0;
-
-        fires.forEach(f => {
-            const d = Math.sqrt((f.x - targetX)**2 + (f.y - targetY)**2);
-            if (d < 280 && !f.isMitigated) {
-                // Auto-reveal if we suppress it (otherwise it disappears while putting it out)
-                f.revealed = true; 
-                
-                const cost = calculateSuppressionTime(f);
-                if (cost > maxSuppressionCost) maxSuppressionCost = cost;
-                f.isMitigated = true; 
-                firesAffected++;
-            }
-        });
+    
+    node.evacuationDeployed = true; // Mark node as used
+    evacuations.push({ 
+        x: targetX, 
+        y: targetY, 
+        radius: 75, 
+        penaltyApplied: false,
+        sourceNode: node.id 
+    });
+    activeAnimations.push({ x: targetX, y: targetY, radius: 0, maxRadius: 150, type: 'evac' });
+}
+// --- UPDATE SUPPRESSION / CONTROL LINE LOGIC --- [cite: 1159-1161]
+ else if (actionValue === 1 || actionValue === 3) { 
+    let firesAffected = 0;
+    fires.forEach(f => {
+        const d = Math.sqrt((f.x - targetX)**2 + (f.y - targetY)**2);
+        // Range for suppression
+        if (d < 280 && !f.isMitigated) { 
+            f.revealed = true;
+            f.isMitigated = true;
+            firesAffected++;
+        }
+    });
 
         if (firesAffected > 0) {
-            discreteTime += maxSuppressionCost;
-            recordActivity(`SUPPRESSION: ${firesAffected} points neutralized. TIME COST: +${maxSuppressionCost/1000}s`);
-        } else {
-            recordActivity("SUPPRESSION FAILED: No active ignitions in range.");
+        // --- NEW SCALING LOGIC ---
+        let timePenalty = 0;
+        if (firesAffected >= 7) timePenalty = 35000;
+        else if (firesAffected >= 5) timePenalty = 25000;
+        else if (firesAffected >= 3) timePenalty = 15000;
+        else if (firesAffected >= 1) timePenalty = 5000;
+
+        discreteTime += timePenalty;
+        recordActivity(`ACTION: ${firesAffected} fires neutralized. Ops Clock +${timePenalty/1000}s`);
+        
+        // Add specific animation for Control Line
+        if (actionValue === 3) {
+            activeAnimations.push({ x: targetX, y: targetY, type: 'control_line', life: 1.0 });
         }
     }
+}
     closeModal();
 
     // Server Uplink
@@ -742,6 +929,31 @@ function handleAction(nodeId, actionValue, distance) {
         }
     })
     .catch(err => console.warn("Uplink failed."));
+}
+
+function findWindwardNode(spawnNode) {
+    const windAngle = currentWind.angle;
+    let bestNode = null;
+    let minDist = Infinity;
+
+    nodes.forEach(node => {
+        if (node.id !== spawnNode.id && !node.isCompromised) {
+            // Calculate angle from spawn to this potential target
+            const angleToNode = Math.atan2(node.y - spawnNode.y, node.x - spawnNode.x);
+            
+            // Check if node is within a 45-degree cone of the wind direction
+            const angleDiff = Math.abs(windAngle - angleToNode);
+            if (angleDiff < Math.PI / 4) {
+                const d = Math.sqrt((node.x - spawnNode.x)**2 + (node.y - spawnNode.y)**2);
+                // Target nodes between 200 and 800 pixels away
+                if (d > 200 && d < 800 && d < minDist) {
+                    minDist = d;
+                    bestNode = node;
+                }
+            }
+        }
+    });
+    return bestNode;
 }
 
 function drawSafeZone(centerX, centerY) {
@@ -797,6 +1009,7 @@ function showHotspots(centerX, centerY) {
 function recordActivity(message) {
     const logContent = document.getElementById('log-content');
     const entry = document.createElement('div');
+    entry.className = 'log-entry'; // Matches the CSS above
     entry.style.marginBottom = "5px";
     entry.innerText = `[${new Date().toLocaleTimeString()}] ${message}`;
     logContent.prepend(entry); // Newest on top
@@ -811,25 +1024,25 @@ function updateSimulation() {
     requestAnimationFrame(updateSimulation);
 }
 class FireSource {
-    constructor(x, y, isVisible = true) {
+constructor(x, y, isVisible = true) {
         this.x = x;
         this.y = y;
         this.radius = 40;
-        this.maxRadius = 100;
+        this.maxRadius = 40;
         this.isMitigated = false;
         this.isVisible = isVisible;
-        this.revealed = isVisible; // Start revealed
+        this.isCommander = false; // Default
+        this.pathProgress = 0;
     }
 
 update() {
         if (this.isMitigated) {
-            this.radius -= 0.6;
+            // Speed up termination animation (Change 0.6 to 2.5 for snappiness)
+            this.radius -= 0.9; 
             if (this.radius < 0) this.radius = 0;
-        } else if (this.radius >= this.maxRadius) {
-            // Fires grow slowly until they hit the 200px limit
-            this.radius += 0.5; 
+        } else if (this.radius < this.maxRadius) {
+            this.radius += 0.5;
         }
-        // Once radius reaches 200, it stays "stagnant"
     }
 
     draw(context) {
@@ -858,7 +1071,7 @@ update() {
 }
 
 function startRandomFire(isInitial = false) {
-    // 1. Logic for Initial Seed Fires
+    // 1. Logic for Initial Seed Fires (KEEP EXISTING)
     if (isInitial || fires.length === 0) {
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
@@ -868,119 +1081,261 @@ function startRandomFire(isInitial = false) {
 
         let rx, ry, valid = false;
         let attempts = 0;
-        while (!valid) {
+        while (!valid && attempts < 1000) {
             rx = Math.random() * mapImg.width;
             ry = Math.random() * mapImg.height;
-const pixel = tempCtx.getImageData(rx, ry, 1, 1).data;
-        // VALIDATE LAND: Reject blue pixels
-        if (isLandPixel(pixel[0], pixel[1], pixel[2])) {
-            valid = true;
+            const pixel = tempCtx.getImageData(rx, ry, 1, 1).data;
+            if (isLandPixel(pixel[0], pixel[1], pixel[2])) valid = true;
+            attempts++;
         }
-        attempts++;
-        }
-        if (!valid) { rx=500; ry=500; } // Fallback
-        // IF it's the very first fire, make it visible. Otherwise, hidden.
+        if (!valid) { rx=500; ry=500; }
+        
         const isFirst = fires.length === 0;
-        fires.push(new FireSource(rx, ry, isFirst)); 
+        const seed = new FireSource(rx, ry, isFirst);
+        seed.isCommander = true;
+        fires.push(seed); 
         return;
     }
 
-    // 2. TURN-BASED LOGIC (70% Sequential / 30% Random)
-    const roll = Math.random();
+// --- 2. ADVANCE ACTIVE COMMANDERS (Ensure they reach target) ---
+    fires.forEach(f => {
+        if (f.isCommander && f.driftTarget && !f.isMitigated) {
+            const dx = f.driftTarget.x - f.x;
+            const dy = f.driftTarget.y - f.y;
+            const totalDist = Math.sqrt(dx*dx + dy*dy);
+            
+            f.pathProgress += 100; 
 
-    if (roll < 0.70) {
-        // --- SEQUENTIAL SPREAD ---
-        const parent = fires[Math.floor(Math.random() * fires.length)];
-        const angle = Math.random() * Math.PI * 2;
-        const distance = 150 + Math.random() * 150; 
-        
-        const newX = parent.x + Math.cos(angle) * distance;
-        const newY = parent.y + Math.sin(angle) * distance;
+            if (f.pathProgress < totalDist) {
+                const ratio = f.pathProgress / totalDist;
+                const subFire = new FireSource(f.x + dx * ratio, f.y + dy * ratio, f.isVisible);
+                fires.push(subFire);
+            } else {
+                // TARGET REACHED: Spawn final node at the exact target location
+                const finalFire = new FireSource(f.driftTarget.x, f.driftTarget.y, f.isVisible);
+                fires.push(finalFire);
+                
+                recordActivity(`CRITICAL: Commander surge has reached target ${f.driftTarget.id}.`);
+                f.driftTarget = null; // Animation stops naturally now
+            }
+        }
+    });
 
-        const clampedX = Math.max(0, Math.min(mapImg.width, newX));
-        const clampedY = Math.max(0, Math.min(mapImg.height, newY));
-        
-        // CHANGE: Pass 'false' to make it invisible [cite: 192]
-        fires.push(new FireSource(clampedX, clampedY, false));
-        
-        recordActivity("SITUATION UPDATE: Secondary ignition detected near existing front.");
-    } else {
-        // --- RANDOM SPOT FIRE ---
-        let rx = Math.random() * mapImg.width;
-        let ry = Math.random() * mapImg.height;
-        
-        // CHANGE: Pass 'false' to make it invisible [cite: 194]
-        fires.push(new FireSource(rx, ry, false));
-        
-        recordActivity("WARNING: New isolated fire cluster detected at distant coordinates.");
+    // --- 3. THE RANDOM QUANTITY LOOP (The "6 at a time" logic) ---
+    // We roll a random number between 2 and 6 for new ignitions this turn
+    const quantity = Math.floor(Math.random() * 5) + 2; 
+
+    for (let i = 0; i < quantity; i++) {
+        // A. 40% CHANCE FOR A NEW COMMANDER (Within the loop)
+        if (Math.random() < 0.50) {
+            const actionNodes = nodes.filter(n => n.type === 'action' && !n.isCompromised);
+            if (actionNodes.length > 0) {
+                const spawnNode = actionNodes[Math.floor(Math.random() * actionNodes.length)];
+                
+                const windAngle = currentWind.angle;
+                let bestNode = null;
+                let minDist = Infinity;
+                nodes.forEach(node => {
+                    if (node.id !== spawnNode.id) {
+                        const angleToNode = Math.atan2(node.y - spawnNode.y, node.x - spawnNode.x);
+                        const angleDiff = Math.abs(windAngle - angleToNode);
+                        if (angleDiff < Math.PI / 4) {
+                            const d = Math.sqrt((node.x - spawnNode.x)**2 + (node.y - spawnNode.y)**2);
+                            if (d < minDist && d < 600) { minDist = d; bestNode = node; }
+                        }
+                    }
+                });
+
+                if (bestNode) {
+                    const commander = new FireSource(spawnNode.x, spawnNode.y, false);
+                    commander.isCommander = true;
+                    commander.driftTarget = bestNode;
+                    commander.pathProgress = 0;
+                    
+                    activeAnimations.push({
+                        type: 'drift_warning',
+                        startX: spawnNode.x, startY: spawnNode.y,
+                        endX: bestNode.x, endY: bestNode.y,
+                        life: 999 
+                    });
+                    fires.push(commander);
+                    continue; // Skip standard logic for this specific loop iteration
+                }
+            }
+        }
+
+        // B. STANDARD 70/30 RANDOMNESS (The Fallback)
+        const roll = Math.random();
+        if (roll < 0.70 && fires.length > 0) {
+            // SEQUENTIAL SPREAD
+            const parent = fires[Math.floor(Math.random() * fires.length)];
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 100 + Math.random() * 150; 
+            const newX = Math.max(0, Math.min(mapImg.width, parent.x + Math.cos(angle) * distance));
+            const newY = Math.max(0, Math.min(mapImg.height, parent.y + Math.sin(angle) * distance));
+            fires.push(new FireSource(newX, newY, false));
+        } else {
+            // RANDOM SPOT FIRE
+            let rx = Math.random() * mapImg.width;
+            let ry = Math.random() * mapImg.height;
+            fires.push(new FireSource(rx, ry, false));
+        }
     }
+
+    recordActivity(`SITUATION ALERT: ${quantity} new thermal ignitions detected across AO.`);
 }
+function triggerCommanderSpread() {
+    let subFires = [];
+
+    fires.forEach(f => {
+        if (f.isCommander && f.driftTarget && !f.isMitigated) {
+            // Calculate vector toward target
+            const dx = f.driftTarget.x - f.x;
+            const dy = f.driftTarget.y - f.y;
+            const totalDist = Math.sqrt(dx*dx + dy*dy);
+            
+            // Advance the string by a fixed step (e.g., 80 pixels)
+            f.pathProgress += 45; 
+
+            if (f.pathProgress < totalDist) {
+                const ratio = f.pathProgress / totalDist;
+                const subX = f.x + dx * ratio;
+                const subY = f.y + dy * ratio;
+
+                // Generate new fire node in tandem
+                const subFire = new FireSource(subX, subY, false);
+                subFire.isSubNode = true; // Mark it as part of a string
+                subFires.push(subFire);
+                
+                recordActivity(`COMMANDER FIRE NODE🎖️: Fire string extending toward ${f.driftTarget.id}.`);
+            } else {
+                // Target reached
+                f.driftTarget = null; 
+            }
+        }
+    });
+
+    fires = [...fires, ...subFires];
+}
+
 function triggerDiscreteSpread() {
     let newSpotFires = [];
+
     fires.forEach(fire => {
         if (fire.isMitigated || fire.radius >= fire.maxRadius) return;
 
-        if (Math.random() < 0.60) {
-            const nodeCount = Math.floor(Math.random() * 3) + 1;
-            for (let i = 0; i < nodeCount; i++) {
-                const variance = (Math.random() - 0.5) * (Math.PI / 3);
-                const travelAngle = currentWind.angle + variance;
-                const jumpDistance = 120 + (Math.random() * 80); 
+        // --- NEW: SUB-FIRE GENERATION FOR COMMANDERS ---
+        if (fire.isCommander && fire.driftTarget) {
+            // Commanders always try to spawn sub-fires toward their target
+            if (Math.random() < 0.70) { // 70% chance to advance the line
+                // Calculate direction to target
+                const dx = fire.driftTarget.x - fire.x;
+                const dy = fire.driftTarget.y - fire.y;
+                const angleToTarget = Math.atan2(dy, dx);
                 
-                const newX = fire.x + Math.cos(travelAngle) * jumpDistance;
-                const newY = fire.y + Math.sin(travelAngle) * jumpDistance;
+                // Spawn a new fire slightly ahead on that path
+                const jumpDistance = 45 + (Math.random() * 40);
+                const newX = fire.x + Math.cos(angleToTarget) * jumpDistance;
+                const newY = fire.y + Math.sin(angleToTarget) * jumpDistance;
 
-                if (newX > 0 && newX < mapImg.width && newY > 0 && newY < mapImg.height) {
-                    // CHANGE: Pass 'false' for invisible [cite: 198]
-                    newSpotFires.push(new FireSource(newX, newY, false));
+                // Stop spawning if we reached the target node
+                const distToTarget = Math.sqrt((newX - fire.driftTarget.x)**2 + (newY - fire.driftTarget.y)**2);
+                
+                if (distToTarget > 40) { 
+                    const subFire = {
+                        x: newX, y: newY,
+                        radius: 0, maxRadius: 100, // Sub-fires are slightly smaller
+                        revealed: false, isVisible: false, isMitigated: false,
+                        isCommander: false, // Sub-fires are not commanders
+                        driftTarget: null 
+                    };
+                    newSpotFires.push(subFire);
+                    
+                    
+                } else {
+                    recordActivity(`CRITICAL: Commander fire has reached target ${fire.driftTarget.id}.`);
+                    fire.driftTarget = null; // Target reached, stop surging
                 }
+            }
+        } 
+        // --- EXISTING RANDOM SPOT FIRE LOGIC ---
+        else if (Math.random() < 0.30) { // Lowered chance for non-commanders to spread wildly
+            const travelAngle = currentWind.angle + ((Math.random() - 0.5) * (Math.PI / 3));
+            const jumpDistance = 120 + (Math.random() * 80); 
+            
+            const newX = fire.x + Math.cos(travelAngle) * jumpDistance;
+            const newY = fire.y + Math.sin(travelAngle) * jumpDistance;
+
+            if (newX > 0 && newX < mapImg.width && newY > 0 && newY < mapImg.height) {
+                newSpotFires.push({
+                    x: newX, y: newY,
+                    radius: 0, maxRadius: 150,
+                    revealed: false, isVisible: false, isMitigated: false,
+                    isCommander: false, driftTarget: null
+                });
             }
         }
     });
 
     fires = [...fires, ...newSpotFires];
     if (newSpotFires.length > 0) {
-        recordActivity(`WIND SPREAD: ${newSpotFires.length} new hidden signatures detected.`);
+        recordActivity(`WIND SPREAD: ${newSpotFires.length} new thermal signatures detected.`);
     }
 }
 function openActionModal(node) {
     activeNode = node;
     const container = document.getElementById('action-options-container');
-    const title = document.getElementById('modal-title');
+    const modalContent = document.getElementById('action-modal'); 
     
-    title.innerText = node.id.replace(/_/g, ' ');
+    if (!modalContent || !container) return; // Safety check
+    
     container.innerHTML = ''; 
-// Inside openActionModal(node)
-// Find distance to nearest fire
-let minDist = Infinity;
-fires.forEach(f => {
-    const d = Math.sqrt((f.x - node.x)**2 + (f.y - node.y)**2);
-    if (d < minDist) minDist = d;
-});
 
-let choices = {};
-// If fire is extremely close (under 100px) but not covering it yet
-if (node.type === 'action') {
-        // Squares get action-oriented choices
+    // Find distance to nearest fire
+    let minDist = Infinity;
+    fires.forEach(f => {
+        const d = Math.sqrt((f.x - node.x)**2 + (f.y - node.y)**2);
+        if (d < minDist) minDist = d;
+    });
+
+    // --- DYNAMIC COLOR LOGIC ---
+    if (node.type === 'investigation') {
+        modalContent.style.backgroundColor = "#737373"; 
+        modalContent.style.border = "4px solid #fbc02d";
+        modalContent.style.color = "#000"; 
+    } else if (node.type === 'action') {
+        modalContent.style.backgroundColor = "#737373"; 
+        modalContent.style.border = "4px solid #2e7d32";
+        modalContent.style.color = "#000";
+    }
+
+    // Define choices based on node type
+    let choices = {};
+    if (node.type === 'action') {
         choices = { 1: "Suppression", 0: "Evacuation" };
     } else {
-        // Triangles get investigative choices
         choices = { 2: "Investigate Scan", 3: "Control Line" };
     }
 
+    // Create buttons from the choices object
     Object.entries(choices).forEach(([value, label]) => {
         const btn = document.createElement('button');
         btn.innerText = label;
-        btn.className = "modal-btn"; // Use a CSS class for styling
+        btn.className = "modal-btn"; 
+        
+        // Match button style to theme
+        btn.style.backgroundColor = node.type === 'action' ? "#2e7d32" : "#f39c12";
+        btn.style.color = "white";
+
         btn.onclick = () => {
-            // Send value and distance to Flask
             handleAction(node.id, parseInt(value), minDist);
             closeModal();
         };
         container.appendChild(btn);
     });
 
-    document.getElementById('action-modal').style.display = 'block';
+    // FINAL STEP: Show the modal
+    modalContent.style.display = 'block';
 }
 
 function closeModal() {
@@ -1001,19 +1356,18 @@ canvas.addEventListener('touchstart', (e) => {
     lastMouse = { x: coords.x, y: coords.y };
 }, { passive: false });
 
-// TOUCH MOVE
+// UPDATED TOUCH MOVE
 window.addEventListener('touchmove', (e) => {
-    if (!isDragging) return;
-    
-    // Prevent the actual phone screen from scrolling
-    if (e.cancelable) e.preventDefault();
+    // ONLY block scrolling if we are actively dragging the map
+    if (isDragging) {
+        if (e.cancelable) e.preventDefault(); 
 
-    const coords = getCoords(e);
-    camera.x += coords.x - lastMouse.x;
-    camera.y += coords.y - lastMouse.y;
-    lastMouse = { x: coords.x, y: coords.y };
-    
-    clampCamera();
+        const coords = getCoords(e);
+        camera.x += coords.x - lastMouse.x;
+        camera.y += coords.y - lastMouse.y;
+        lastMouse = { x: coords.x, y: coords.y };
+        clampCamera();
+    }
 }, { passive: false });
 // TOUCH END
 window.addEventListener('touchend', () => {

@@ -5,7 +5,6 @@
     padding: 0;
     width: 100vw;
     height: 100vh;
-    overflow: hidden;
 }
 
 .content-overlay {
@@ -142,6 +141,72 @@
 .close-modal-x:hover {
     color: #ffffff;
 }
+
+#activity-record {
+    position: fixed;
+    right: 20px;
+    top: 20px;
+    width: 320px; /* Slightly wider to accommodate larger text */
+    height: 400px; /* Slightly taller */
+    background: rgba(0,0,0,0.85);
+    color: #2ecc71;
+    padding: 15px;
+    border-radius: 10px;
+    font-family: monospace;
+    /* CHANGE: Increased base font size */
+    font-size: 16px; 
+    border: 1px solid #333;
+    z-index: 1000;
+}
+#live-log-container div {
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(46, 204, 113, 0.1);
+    padding-bottom: 5px;
+}
+/* Optional: Make the individual log entries stand out */
+.log-entry {
+    margin-bottom: 8px;
+    border-bottom: 1px solid rgba(46, 204, 113, 0.2);
+    padding-bottom: 4px;
+}
+/* Pulsing glow for the briefing container */
+.briefing-glow {
+    box-shadow: 0 0 20px rgba(46, 204, 113, 0.2);
+    animation: pulse-border 3s infinite alternate;
+}
+
+@keyframes pulse-border {
+    from { border-color: #2ecc71; box-shadow: 0 0 10px #2ecc71; }
+    to { border-color: #00ff00; box-shadow: 0 0 30px #00ff00; }
+}
+
+/* Scanline effect overlay */
+.scanlines {
+    position: relative;
+    overflow: hidden;
+}
+.scanlines::before {
+    content: " ";
+    position: absolute;
+    top: 0; left: 0; bottom: 0; right: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    background-size: 100% 4px, 3px 100%;
+    pointer-events: none;
+    z-index: 30000;
+}
+
+.typewriter {
+    font-family: 'Courier New', Courier, monospace;
+    overflow: hidden;
+    border-right: .15em solid #2ecc71;
+    white-space: nowrap;
+    letter-spacing: .10em;
+    animation: typing 2.5s steps(40, end), blink-caret .75s step-end infinite;
+}
+
+@keyframes typing { from { width: 0 } to { width: 100% } }
+@keyframes blink-caret { from, to { border-color: transparent } 50% { border-color: #2ecc71; } }
 /* --- MOBILE SPECIFIC OVERRIDES --- */
     @media (max-width: 700px) {
         .back-menu .text {
@@ -153,12 +218,33 @@
         }
 
         #activity-record {
-            width: 160px;
-            height: 100px;
-            font-size: 9px;
-            top: 15px; /* Move back up since text is hidden */
-            right: 10px;
-        }
+    position: fixed;
+    right: 20px;
+    top: 20px;
+    width: 320px; /* Slightly wider to accommodate larger text */
+    height: 400px; /* Slightly taller */
+    background: rgba(0,0,0,0.85);
+    color: #2ecc71;
+    padding: 15px;
+    border-radius: 10px;
+    font-family: monospace;
+    /* CHANGE: Increased base font size */
+    font-size: 16px; 
+    border: 1px solid #333;
+    z-index: 1000;
+}
+#live-log-container {
+    height: 330px;
+    /* CHANGE: Increased line spacing for readability */
+    line-height: 1.4; 
+}
+
+/* Optional: Make the individual log entries stand out */
+.log-entry {
+    margin-bottom: 8px;
+    border-bottom: 1px solid rgba(46, 204, 113, 0.2);
+    padding-bottom: 4px;
+}
 
         #status-bar {
             width: 90%;
@@ -196,6 +282,7 @@
 <div id="status-bar" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); color:white; padding:15px; border-radius:10px; z-index:100; font-family:monospace; display:flex; gap:20px;">
     <div>⏳ TIME: <span id="timer">02:00</span></div>
     <div>🔥 COVERAGE: <span id="coverage">0%</span></div>
+    <div>📊 GRADE: <span id="grade-display">100%</span></div>
 </div>
 <div id="activity-record" style="position:fixed; right:20px; top:20px; width:250px; height:300px; background:rgba(0,0,0,0.85); color:#2ecc71; padding:15px; border-radius:10px; font-family:monospace; font-size:11px; border:1px solid #333; z-index:1000; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);">
     
@@ -221,17 +308,42 @@
         <div id="full-log-display" style="line-height: 1.6;"></div>
     </div>
 </div>
-<div id="mission-briefing" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.9); z-index:20000; display:flex; justify-content:center; align-items:center; color:white; font-family:monospace;">
-    <div style="width:600px; border:2px solid #2ecc71; padding:40px; background:#0a0a0a; box-shadow:0 0 20px #2ecc71;">
-        <h1 style="color:#2ecc71; border-bottom:2px solid #2ecc71; padding-bottom:10px;">MISSION BRIEFING: OP FIRESCAN</h1>
-        <ul style="line-height:1.8; font-size:18px;">
-            <li><strong>OBJECTIVE:</strong> Maintain fire coverage below 60%.</li>
-            <li><strong>ASSETS:</strong> Protect Yellow Priority Assets at all costs.</li>
-            <li><strong>CIVILIANS:</strong> Do not let fire overtake Evacuation Zones.</li>
-            <li><strong>WIND:</strong> Scan nodes to reveal wind direction and speed.</li>
-            <li><strong>VICTORY:</strong> Extinguish all fires before 120s expires.</li>
-        </ul>
-        <button onclick="startMission()" style="margin-top:20px; width:100%; padding:15px; background:#2ecc71; color:black; border:none; font-weight:bold; cursor:pointer; font-size:20px;">INITIALIZE SIMULATION</button>
+<div id="mission-briefing" class="scanlines" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.92); z-index:20000; display:flex; justify-content:center; align-items:center; color:white; font-family:monospace;">
+    <div class="briefing-glow" style="width:700px; border:2px solid #2ecc71; padding:40px; background:#050a05; position:relative;">
+        
+        <div style="position:absolute; top:-25px; left:20px; background:#050a05; padding:0 10px; color:#2ecc71; font-size:12px; letter-spacing:2px;">
+            SYSTEM_STATUS: ONLINE // ENCRYPTION: AES-256
+        </div>
+
+        <h1 class="typewriter" style="color:#2ecc71; border-bottom:1px solid #2ecc71; padding-bottom:10px; margin-top:0;">[ OPERATION: WILD-STRIKE ]</h1>
+        
+        <p style="color: #00ccff; font-weight: bold; margin-bottom: 20px;">>> INCOMING INTELLIGENCE REPORT <<</p>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+            <div style="border-right: 1px solid rgba(46,204,113,0.3); padding-right: 15px;">
+                <h3 style="color:#e74c3c; margin-top:0;">🔴 THREAT ASSESSMENT</h3>
+                <ul style="list-style: none; padding:0; font-size:14px; line-height:1.6;">
+                    <li>🔥 <b style="color:#e74c3c;">COMMANDER SURGES:</b> Targeted fire strings. They seek out and compromise your nodes specifically.</li>
+                    <li>🌪️ <b style="color:#e74c3c;">WIND DRIFT:</b> Fire spreads faster in the direction of the wind. Scan to reveal direction.</li>
+                </ul>
+            </div>
+
+            <div>
+                <h3 style="color:#2ecc71; margin-top:0;">🟢 TACTICAL RESPONSE</h3>
+                <ul style="list-style: none; padding:0; font-size:14px; line-height:1.6;">
+                    <li>🛡️ <b style="color:#ffeb3b;">CONTROL LINES:</b> Large-scale containment. (Scales: 1-Fire: 5s | 5-Fires: 25s).</li>
+                    <li>🏃 <b style="color:#2ecc71;">EVACUATION:</b> Protects grades. Grade only drops once unless a new surge occurs.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div style="margin-top:30px; padding:15px; background:rgba(46, 204, 113, 0.1); border:1px dashed #2ecc71; text-align:center;">
+            <strong>PRIMARY OBJECTIVE:</strong> KEEP COVERAGE BELOW 60% AND ELIMINATE ALL THERMAL FRONTS BEFORE THE 120s CLOCK EXPIRES.
+        </div>
+
+        <button onclick="startMission()" style="margin-top:30px; width:100%; padding:18px; background:#2ecc71; color:black; border:none; font-weight:bold; cursor:pointer; font-size:22px; text-transform:uppercase; transition:0.3s;" onmouseover="this.style.background='#00ff00'" onmouseout="this.style.background='#2ecc71'">
+            INITIALIZE TACTICAL OVERLAY
+        </button>
     </div>
 </div>
 <div id="artifact-legend" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.95); z-index:20001; display:flex; justify-content:center; align-items:center; color:white; font-family:monospace;">
@@ -242,10 +354,12 @@
             <div style="line-height:1.6;">
                 <p><strong style="color:#f1c40f;">🟡 PRIORITY ASSETS:</strong> Critical infrastructure. If fire reaches these, mission failure is imminent.</p>
                 <p><strong style="color:#e74c3c;">🔥 FIRE FRONT:</strong> Dynamic thermal zones. Spreads based on terrain and wind direction.</p>
+                <p><strong style="color:#e74c3c;">⚠️ COMMANDER FRONTS:</strong> Advanced fire clusters that target nodes. They move in "strings" and require immediate prioritization.</p>
             </div>
             <div style="line-height:1.6;">
                 <p><strong style="color:#7f8c8d;">❌ OFFLINE NODES:</strong> Nodes consumed by fire or destroyed. They cannot be interacted with.</p>
                 <p><strong style="color:#3498db;">🌀 SCAN NODES:</strong> Deploy sensors here to reveal hidden wind data and local conditions.</p>
+                <p><strong style="color:#3498db;">🛡️ CONTROL LINES:</strong> Wide-area fire suppression that scales time penalties based on the density of the fire cluster neutralized.</p>
             </div>
         </div>
 
