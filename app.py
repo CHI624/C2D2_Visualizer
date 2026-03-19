@@ -151,59 +151,42 @@ def process_action():
         val = data.get('value')
         ui_node_id = data.get('node_id')
         
-        # 1. Strategic/Investigative bypass (Values 2 and 3)
+        # 1. Update early returns to include the message
         if val == 3:
-            return jsonify({"status": "success", "spread_increment": 0.02, "prob_high": 0.05})
+            return jsonify({
+                "status": "success", 
+                "spread_increment": 0.02, 
+                "prob_high": 0.05,
+                "cdn_msg": "TACTICAL INTELLIGENCE: Control line efficiency confirmed at 95%."
+            })
         if val == 2:
-            return jsonify({"status": "success", "spread_increment": 0.08, "prob_high": 0.15})
-# --- NEW: LOG TO SUPABASE ---
-        action_names = {0: "Evacuation", 1: "Suppression", 2: "Scan", 3: "Control Line"}
-        new_log = ActivityLog(
-            session_id = session.get('user_id', 'anonymous'), # Ties it to the user session
-            action_performed = action_names.get(val, "Unknown"),
-            node_id = ui_node_id
-        )
-        db.session.add(new_log)
-        db.session.commit() # This pushes it to Supabase immediately
-        # ----------------------------
+            return jsonify({
+                "status": "success", 
+                "spread_increment": 0.08, 
+                "prob_high": 0.15,
+                "cdn_msg": "SENSOR DATA: Scan complete. Thermal signatures mapped."
+            })
 
-        # ... (rest of your existing logic for spread_multiplier and prob_high)
-        # 2. Map UI Node Names to CDN Node Names
-        # If the UI node isn't in this map, we default to 'Action'
-        node_mapping = {
-            'Ribbon Bridge Status': 'Action',
-            'Fire Across Gap': 'Action',
-            'Enemy ATK/Artillery': 'Action'
-        }
-        cdn_variable = node_mapping.get(ui_node_id, 'Action')
+        # ... DB Logging logic ...
 
-        # 3. Standard CDN Query (Using the correct variable 'fire_cdn')
-        # Inside process_action in app.py
+        # 3. Model Query
         prediction = fire_cdn._cdn_query(['Fire_Intensity'], {cdn_variable: val}, {}, pcc=False)
         prob_high = float(prediction.get_value(**{'Fire_Intensity': 1}))
 
-# --- NEW: Calculate "Reduction" or "Impact" message ---
-# If prob_high is 0.1, that's a 90% chance of Low intensity (success)
+        # 4. Generate the specific message for the UI
         reduction_pct = round((1.0 - prob_high) * 100) 
-        impact_msg = f"CDN ANALYSIS: High-Intensity probability reduced to {round(prob_high * 100)}%. Resulted in {reduction_pct}% effectiveness."
-
-        # get_value expects a dictionary of the state we are checking
-        prob_high = float(prediction.get_value(**{'Fire_Intensity': 1}))
-        
-        # Determine spread based on the probability of High Intensity
-        spread_multiplier = 0.4 if prob_high < 0.5 else 1.8
+        impact_msg = f"CDN ANALYSIS: {reduction_pct}% effectiveness. Probability of High-Intensity fire now {round(prob_high * 100)}%."
 
         return jsonify({
             "status": "success",
-            "spread_increment": spread_multiplier,
+            "spread_increment": 0.4 if prob_high < 0.5 else 1.8,
             "prob_high": prob_high,
-            "cdn_msg" : impact_msg
+            "cdn_msg" : impact_msg  # This MUST be here for the JS to see it
         })
 
     except Exception as e:
-        db.session.rollback() # Roll back if DB insert fails
-        print(f"Error in process_action: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        print(f"ERROR: {e}")
+        return jsonify({"status": "error", "message": "CDN Offline"}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, port = 8080)  # Debug mode for development

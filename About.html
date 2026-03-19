@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <div class="header-container">
+    <div class="title-group">
+        <a href="{{ url_for('C2D2') }}"><h1 class="title">C2D2</h1></a>
+        <img src="{{ url_for('static', filename='circle.png') }}" class="circular">
+        <img src="{{ url_for('static', filename='down_but.png') }}" alt="Press" class="expand"></img>
+    <img src="{{ url_for('static', filename='down_but.png') }}" alt="Press" class="expandalt"></img>    
+    <div class="menu-guide">Press to expand the menu</div>
+    </div>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <header class="header_hidden">
+        <nav>
+            <ul>
+               <a href="{{ url_for('home') }}">Home</a>
+               <a href="{{ url_for('About') }}">About</a>
+            </ul>
+        </nav>
+    </header>
+</div>
+</head>
+<style>
+    body,html{
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        width: 100vw;
+    }
+    body{
+    background: url("{{ url_for('static', filename='back.jpg') }}");
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center; 
+    background-attachment: fixed;
+}
+</style>
+<body>
+    <div class="info-container">
+    <span class="description_box_about">
+        <h1>ABOUT</h1>
+<p>C2D2 (Cloud-based COVID-19 Detector) is an AI-powered web application designed to assist 
+        healthcare professionals in the rapid and accurate detection of COVID-19 from chest X-ray images. 
+        By leveraging advanced deep learning algorithms, C2D2 analyzes medical images to identify signs
+    </p>
+    <a href="{{ url_for('C2D2') }}" class="btn">Enter C2D2</a>
+</span>
+</div>
+<footer>
+    <p class="footer_text">© 2025 C2D2. All rights reserved.</p>
+</footer>
+<script>
+    const expandButton = document.querySelector('.expand');
+    const expandButtonalt = document.querySelector('.expandalt');
+    const header = document.querySelector('header');
+    const circular = document.querySelector('.circular');
+    const hidden = document.querySelector('header_hidden');
+    const menu = document.querySelector('.menu-guide');
+    expandButtonalt.hidden=true;
+    header.classList.toggle('header_hidden');
+    circular.hidden=false;
+    expandButton.addEventListener('click', () => {
+        header.classList.toggle('header_hidden');
+        circular.hidden=true;
+        expandButton.hidden=true;
+        expandButtonalt.hidden=false;
+        menu.hidden=true;
+    });
+    expandButtonalt.addEventListener('click', () => {
+        header.classList.toggle('header_hidden');
+        circular.hidden=false;
+        expandButton.hidden=false;
+        expandButtonalt.hidden=true;
+        menu.hidden=false;
+    });
+</script>
+</body>
+</html>
